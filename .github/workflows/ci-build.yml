@@ -50,25 +50,27 @@ jobs:
           bison --version || echo "bison not found"
 
       - name: Build
+        working-directory: src
         run: |
           set -e
           if [ "${{ matrix.os }}" = "windows-latest" ]; then
             echo "Building on Windows (MSYS2)"
-            /usr/bin/bash -lc "make"
+            /usr/bin/bash -lc "cd src && make"
             BIN_NAME=zmac.exe
           else
             make
             BIN_NAME=zmac
           fi
-          mkdir -p out
+          mkdir -p ../out
           if [ -f "$BIN_NAME" ]; then
-            cp "$BIN_NAME" out/
+            cp "$BIN_NAME" ../out/
           else
             echo "Expected binary $BIN_NAME not found" && ls -la
             exit 1
           fi
 
       - name: Run tests (if present)
+        working-directory: src
         run: |
           if make -n test >/dev/null 2>&1; then
             make test || true
@@ -88,6 +90,7 @@ jobs:
           else
             tar -czf "dist/zmac-${OS_NAME}-${ARCH}.tar.gz" -C out .
           fi
+
 
       - name: Upload build artifact
         uses: actions/upload-artifact@v4
