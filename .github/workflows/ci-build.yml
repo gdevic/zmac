@@ -18,7 +18,7 @@ jobs:
 
       - name: Build
         working-directory: src
-        run: make
+        run: make CFLAGS="-std=gnu89"
 
       - name: Package
         run: |
@@ -44,7 +44,7 @@ jobs:
         working-directory: src
         run: |
           GCC=$(find "$(brew --prefix gcc)/bin" -name 'gcc-[0-9]*' -not -name '*c++*' | head -1)
-          make CC="$GCC"
+          make CC="$GCC" CFLAGS="-std=gnu89"
 
       - name: Package
         run: |
@@ -76,7 +76,7 @@ jobs:
 
       - name: Build
         working-directory: src
-        run: make
+        run: make CFLAGS="-std=gnu89"
 
       - name: Package
         run: |
