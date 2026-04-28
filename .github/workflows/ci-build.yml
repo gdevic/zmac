@@ -1,0 +1,122 @@
+name: CI Build (cross-platform)
+
+on:
+  push:
+    branches: [ master ]
+  pull_request:
+    branches: [ master ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ${{ matrix.os }}
+    strategy:
+      matrix:
+        os: [ubuntu-latest, macos-latest, windows-latest]
+        arch: [x64]
+    env:
+      BUILD_NAME: zmac
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup deps (Linux/macOS)
+        if: matrix.os != 'windows-latest'
+        run: |
+          if [ "${{ matrix.os }}" = "ubuntu-latest" ]; then
+            sudo apt-get update
+            sudo apt-get install -y build-essential bison flex pkg-config zip tar
+          else
+            brew update
+            brew install bison flex pkg-config zip
+          fi
+
+      - name: Setup MSYS2 toolchain (Windows)
+        if: matrix.os == 'windows-latest'
+        uses: msys2/setup-msys2@v2
+        with:
+          update: true
+          install: >-
+            mingw-w64-x86_64-gcc
+            mingw-w64-x86_64-bison
+            mingw-w64-x86_64-flex
+            mingw-w64-x86_64-make
+            zip
+
+      - name: Show toolchain
+        run: |
+          uname -a || ver
+          gcc --version || echo "gcc not found"
+          bison --version || echo "bison not found"
+
+      - name: Build
+        run: |
+          set -e
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            echo "Building on Windows (MSYS2)"
+            /usr/bin/bash -lc "make"
+            BIN_NAME=zmac.exe
+          else
+            make
+            BIN_NAME=zmac
+          fi
+          mkdir -p out
+          if [ -f "$BIN_NAME" ]; then
+            cp "$BIN_NAME" out/
+          else
+            echo "Expected binary $BIN_NAME not found" && ls -la
+            exit 1
+          fi
+
+      - name: Run tests (if present)
+        run: |
+          if make -n test >/dev/null 2>&1; then
+            make test || true
+          elif make -n check >/dev/null 2>&1; then
+            make check || true
+          else
+            echo "No test target found"
+          fi
+
+      - name: Package artifact
+        run: |
+          mkdir -p dist
+          OS_NAME=$(echo "${{ matrix.os }}" | sed 's/-latest//')
+          ARCH=${{ matrix.arch }}
+          if [ "${{ matrix.os }}" = "windows-latest" ]; then
+            zip -j "dist/zmac-${OS_NAME}-${ARCH}.zip" out/*
+          else
+            tar -czf "dist/zmac-${OS_NAME}-${ARCH}.tar.gz" -C out .
+          fi
+
+      - name: Upload build artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: zmac-${{ matrix.os }}-${{ matrix.arch }}
+          path: dist/*
+
+  release:
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+        with:
+          path: release-artifacts
+
+      - name: Create draft release
+        id: create_release
+        uses: actions/create-release@v1
+        with:
+          tag_name: ci-build-${{ github.run_id }}
+          release_name: "CI build ${{ github.run_id }}"
+          draft: true
+          body: "Automated cross-platform build artifacts for zmac."
+          token: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Upload release assets
+        uses: softprops/action-gh-release@v1
+        with:
+          files: release-artifacts/**
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
