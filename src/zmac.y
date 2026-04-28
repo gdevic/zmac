@@ -1,6 +1,6 @@
 %{
 // GWP - keep track of version via hand-maintained date stamp.
-#define VERSION "18oct2022"
+#define VERSION "29feb2024"
 
 /*
  *  zmac -- macro cross-assembler for the Zilog Z80 microprocessor

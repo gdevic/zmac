@@ -3,6 +3,7 @@ name: CI Build
 on:
   push:
     branches: [master]
+    tags: ['v*']
   pull_request:
     branches: [master]
   workflow_dispatch:
@@ -89,7 +90,7 @@ jobs:
           path: dist/*
 
   release:
-    if: github.event_name == 'push'
+    if: startsWith(github.ref, 'refs/tags/v')
     needs: [build-linux, build-macos, build-windows]
     runs-on: ubuntu-latest
     permissions:
@@ -102,8 +103,6 @@ jobs:
 
       - uses: softprops/action-gh-release@v2
         with:
-          tag_name: ci-build-${{ github.run_id }}
-          name: "CI build ${{ github.run_id }}"
-          draft: true
-          body: "Automated cross-platform build artifacts for zmac."
+          name: "zmac ${{ github.ref_name }}"
+          body: "Cross-platform build artifacts for zmac ${{ github.ref_name }}."
           files: release-artifacts/*
